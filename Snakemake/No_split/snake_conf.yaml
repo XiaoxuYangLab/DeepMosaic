@@ -7,3 +7,21 @@ annovar: "/Annovar"
 
 #path to deepmosaic
 deepmosaic: "/DeepMosaic/deepmosaic"
+
+# Genome build options: hg19, hg38, custom
+build: "hg19"
+
+# Custom genome build options. Required only when build is "custom".
+reference_fasta: ""
+repeat_bed: ""
+segdup_bed: ""
+
+# Set true to skip ANNOVAR/gnomAD annotation.
+skip_annovar: false
+
+# CRAM reference FASTA path. Required for CRAM input.
+cram_ref_dir: ""
+
+# Optional prediction depth_fraction thresholds.
+min_depth_fraction: 0.6
+max_depth_fraction: 1.7

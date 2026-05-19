@@ -99,8 +99,45 @@ OUTPUT_HEADER = [
 
 OUT_DIR = config["out_dir"]
 INPUT_FILES = config["input_files"]
-ANNOVAR = config["annovar"]
+ANNOVAR = config.get("annovar", "")
 DEEPMOSAIC = config["deepmosaic"]
+BUILD = config.get("build", "hg19")
+REFERENCE_FASTA = config.get("reference_fasta", "")
+REPEAT_BED = config.get("repeat_bed", "")
+SEGDUP_BED = config.get("segdup_bed", "")
+CRAM_REF_DIR = config.get("cram_ref_dir", "")
+MIN_DEPTH_FRACTION = config.get("min_depth_fraction", 0.6)
+MAX_DEPTH_FRACTION = config.get("max_depth_fraction", 1.7)
+SKIP_ANNOVAR = str(config.get("skip_annovar", "false")).lower() in ["true", "1", "yes"]
+
+if not SKIP_ANNOVAR and not ANNOVAR:
+    raise ValueError("annovar is required unless skip_annovar is true")
+
+if BUILD not in ["hg19", "hg38", "custom"]:
+    raise ValueError("build must be one of: hg19, hg38, custom")
+
+if BUILD == "custom":
+    if not REFERENCE_FASTA:
+        raise ValueError("reference_fasta is required when build is custom")
+    if not REPEAT_BED:
+        raise ValueError("repeat_bed is required when build is custom")
+    if not SEGDUP_BED:
+        raise ValueError("segdup_bed is required when build is custom")
+
+ANNOVAR_ARG = "--skip-annovar" if SKIP_ANNOVAR else "-a " + ANNOVAR
+CUSTOM_BUILD_ARGS = ""
+if BUILD == "custom":
+    CUSTOM_BUILD_ARGS = (
+        "--reference-fasta " + REFERENCE_FASTA +
+        " --repeat-bed " + REPEAT_BED +
+        " --segdup-bed " + SEGDUP_BED
+    )
+CRAM_REF_ARG = "" if not CRAM_REF_DIR else "-c " + CRAM_REF_DIR
+DEPTH_FRACTION_ARGS = (
+    "--min-depth-fraction " + str(MIN_DEPTH_FRACTION) +
+    " --max-depth-fraction " + str(MAX_DEPTH_FRACTION)
+)
+
 
 # need to split up the feature file for prediction
 # if the variant counts in it is too large
@@ -179,7 +216,10 @@ rule deepmosaic_draw:
         "({DEEPMOSAIC}/deepmosaic-draw"
         " -i {input.infile}"
         " -o {params.target_dir}"
-        " -a {ANNOVAR}) 2> {log}"
+        " -b {BUILD}"
+        " {ANNOVAR_ARG}"
+        " {CUSTOM_BUILD_ARGS}"
+        " {CRAM_REF_ARG}) 2> {log}"
 
 
 rule split_features:
@@ -230,7 +270,8 @@ rule deepmosaic_predict:
         " -i {input.infile}"
         " -b 5"
         " -o {output.outfile}"
-	" -gb hg19) 2> {log}"
+	" -gb {BUILD}"
+        " {DEPTH_FRACTION_ARGS}) 2> {log}"
 
 
 rule gather_prediction_results:

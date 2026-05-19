@@ -67,7 +67,11 @@ def getOptions(args=sys.argv[1:]):
                                                                                          model type is given in the -m argument")
     parser.add_argument("-b", "--batch_size", required=False, type=int, default=10, help="traing or testing batch size.")
     parser.add_argument("-o", "--output_file", required=True, help="prediction output file")
-    parser.add_argument("-gb", "--build", required=True, help="genome build, use hg19 or hg38")
+    parser.add_argument("-gb", "--build", required=True, help="genome build, use hg19, hg38, or custom")
+    parser.add_argument("--min-depth-fraction", "--min_depth_fraction", required=False, type=float, default=0.6,
+                        help="Minimum depth_fraction allowed for mosaic prediction. Default: 0.6. Changing this value may affect performance because validation outside the default 0.6-1.7 range has not been characterized.")
+    parser.add_argument("--max-depth-fraction", "--max_depth_fraction", required=False, type=float, default=1.7,
+                        help="Maximum depth_fraction allowed for mosaic prediction. Default: 1.7. Changing this value may affect performance because validation outside the default 0.6-1.7 range has not been characterized.")
     options = parser.parse_args(args)
     return options
 
@@ -81,7 +85,7 @@ def check_y_region(positions):
     in_par2 = (positions >= y_par2_region[0]) & (positions <= y_par2_region[1])
     return (~in_par1) & (~in_par2)
 
-def prediction_decision(features_df, scores_list):
+def prediction_decision(features_df, scores_list, min_depth_fraction=0.6, max_depth_fraction=1.7, apply_sex_chromosome_rules=True):
     predictions = np.array(["artifact"] * len(features_df), dtype = object)
     mosaic_scores = scores_list[:, -1].astype(float)
     depth_fractions = features_df.depth_fraction.astype(float)
@@ -96,14 +100,15 @@ def prediction_decision(features_df, scores_list):
     lower_CIs = features_df.lower_CI.astype(float)
     upper_CIs = features_df.upper_CI.astype(float)
     #mosaic
-    mosaic_filters = (depth_fractions >= 0.6) & (depth_fractions <= 1.7) & (segdups == 0) & (all_repeats == 0) &\
+    mosaic_filters = (depth_fractions >= min_depth_fraction) & (depth_fractions <= max_depth_fraction) & (segdups == 0) & (all_repeats == 0) &\
               (gnomads < 0.001) & (mosaic_scores > 0.6)
     predictions[np.where(mosaic_filters)] = "mosaic"
-    extra_mosaic_filters = (depth_fractions >= 0.6) & (depth_fractions <= 1.7) & (segdups == 0) & (all_repeats == 0) &\
+    extra_mosaic_filters = (depth_fractions >= min_depth_fraction) & (depth_fractions <= max_depth_fraction) & (segdups == 0) & (all_repeats == 0) &\
               (gnomads < 0.001) & (upper_CIs >= 0.5) & (lower_CIs < 0.5)
-    extra_mosaic_filters_X = extra_mosaic_filters & (sexs == "M") & (chroms == "X") & (check_x_region(positions))
-    extra_mosaic_filters_Y = extra_mosaic_filters & (sexs == "M") & (chroms == "Y") & (check_y_region(positions))
-    predictions[extra_mosaic_filters_X | extra_mosaic_filters_Y] = "mosaic"
+    if apply_sex_chromosome_rules:
+        extra_mosaic_filters_X = extra_mosaic_filters & (sexs == "M") & (chroms == "X") & (check_x_region(positions))
+        extra_mosaic_filters_Y = extra_mosaic_filters & (sexs == "M") & (chroms == "Y") & (check_y_region(positions))
+        predictions[extra_mosaic_filters_X | extra_mosaic_filters_Y] = "mosaic"
     #heterozygous
     hetero_filters = (mosaic_scores <= 0.6) & (upper_CIs >= 0.5) & (lower_CIs < 0.5)
     predictions[np.where(hetero_filters)] = "heterozygous"
@@ -121,6 +126,7 @@ def main():
     global y_par1_region
     global x_par2_region
     global y_par2_region
+    apply_sex_chromosome_rules = True
     if options.build == 'hg19':
         x_par1_region = [60001, 2699520]
         y_par1_region = [10001, 2649520]
@@ -131,8 +137,14 @@ def main():
         y_par1_region = [10001, 2781479]
         x_par2_region = [155701383, 156030895]
         y_par2_region = [56887903, 57217415]
+    elif options.build == 'custom':
+        apply_sex_chromosome_rules = False
+        sys.stderr.write(
+            "WARNING: custom genome build selected. "
+            "hg19/hg38-specific X/Y PAR rules will not be applied.\n"
+        )
     else:
-        sys.stderr.write(options.build + " is an invalid genome build, please see help message")
+        sys.stderr.write(options.build + " is an invalid genome build, please use hg19, hg38, or custom")
         sys.exit(3)
 
     input_file = options.input_file
@@ -141,6 +153,27 @@ def main():
     model_path = options.model_path
     batch_size = options.batch_size
     output_file = os.path.abspath(options.output_file)
+    min_depth_fraction = options.min_depth_fraction
+    max_depth_fraction = options.max_depth_fraction
+
+    if min_depth_fraction < 0:
+        sys.stderr.write("--min-depth-fraction must be greater than or equal to 0.\n")
+        sys.exit(2)
+
+    if max_depth_fraction < 0:
+        sys.stderr.write("--max-depth-fraction must be greater than or equal to 0.\n")
+        sys.exit(2)
+
+    if min_depth_fraction > max_depth_fraction:
+        sys.stderr.write("--min-depth-fraction cannot be greater than --max-depth-fraction.\n")
+        sys.exit(2)
+
+    if min_depth_fraction != 0.6 or max_depth_fraction != 1.7:
+        sys.stderr.write(
+            "WARNING: depth_fraction thresholds set to "
+            "[{0}, {1}] instead of the default range [0.6, 1.7]. "
+            "Results should be interpreted with caution.\n".format(min_depth_fraction, max_depth_fraction)
+        )
 
     if not os.path.exists(input_file):
         sys.stderr.write("Please provide a valid input file.")
@@ -202,7 +235,13 @@ def main():
     features_df = features_df.loc[indices_list, :]
     scores_list = np.array(scores_list)
     #determine genotypes
-    prediction_list = prediction_decision(features_df, scores_list)
+    prediction_list = prediction_decision(
+        features_df,
+        scores_list,
+        min_depth_fraction=min_depth_fraction,
+        max_depth_fraction=max_depth_fraction,
+        apply_sex_chromosome_rules=apply_sex_chromosome_rules
+    )
     image_list = features_df.image_filepath.values.reshape(-1,1)
     header = ["#sample_name", "sex","chrom", "pos", "ref", "alt", "variant", "maf", "lower_CI", "upper_CI", "variant_type", "gene_id",
               "gnomad", "all_repeat", "segdup", "homopolymer", "dinucluotide", "depth_fraction",
@@ -210,5 +249,3 @@ def main():
     results = np.hstack([features_df[features_header[:-2]].values, scores_list, prediction_list, image_list])
     results_pd = pd.DataFrame(results, columns = header)
     results_pd.to_csv(output_file, index=None, sep="\t")
-
-

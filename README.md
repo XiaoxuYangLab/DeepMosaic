@@ -1,6 +1,6 @@
 # DeepMosaic  <img src="https://user-images.githubusercontent.com/17311837/88461876-52d18f80-ce5c-11ea-9aed-534dfd07d351.png" alt="DeepMosaic_Logo" width=15%> 
 
-Visualization and control-independent classification tool of noncancer (somatic or germline) mosaic single nucleotide variants (SNVs) with deep convolutional neural networks. Originally written by [Virginia (Xin) Xu](https://github.com/Virginiaxu) and [Xiaoxu Yang](https://github.com/shishenyxx), maintained by [Arzoo Patel](https://github.com/arzoopatel5) and [Sang Lee](https://github.com/sang0318). 
+Visualization and control-independent classification tool of noncancer (somatic or germline) mosaic single nucleotide variants (SNVs) with deep convolutional neural networks. Originally written by [Virginia (Xin) Xu](https://github.com/Virginiaxu) and [Xiaoxu Yang](https://github.com/shishenyxx), maintained by [Arzoo Patel](https://github.com/arzoopatel5), [Sang Lee](https://github.com/sang0318), and  [Sai Babu Patarlapalli](https://github.com/Saibabu7770)
 
 
 --------------------------------------------
@@ -57,6 +57,7 @@ An RGB image was used to represent the pileup results for all the reads aligned 
 
 Workflow of DeepMosaic on best-performed deep convolutional neural network model after benchmarking. Variants were first transformed into images based on the alignment information. A deep convolution neural network then extracted the high-dimensional information from the image, and experimental, genomic, and population-related information was further incorporated into the classifier.
 
+   
 [Return to Contents](#contents)
 
 --------------------------------------------
@@ -91,11 +92,12 @@ Alternatively, you can use singularity or docker container. See [Singularity](#S
 
 <details><summary>
 
+
 # Installation 
 
 </summary>
 
-We are now providing [singularity image](https://cloud.sylabs.io/library/sanglee8888/deepmosaic/deepmosaic) and [docker image](https://hub.docker.com/repository/docker/sanglee8888/deepmosaic/general) to run DeepMosaic. If you want to install and run DeepMosaic manually, please read through and follow these steps. The following steps could be performed in a command line shell environment (Linux, Mac, Windows subsystem Linux etc., whichever has the computational resource and >20G storage to run DeepMosaic)
+We are now providing [singularity image](https://cloud.sylabs.io/library/sai7777777/deepmosaic/deepmosaic) and [Docker image](https://hub.docker.com/r/sai7777777/deepmosaic) to run DeepMosaic v1.2.0. The Singularity image can be downloaded with `singularity pull DeepMosaic_1.2.0-custom.sif library://sai7777777/deepmosaic/deepmosaic:1.2.0-custom`, and the Docker image can be downloaded with `docker pull sai7777777/deepmosaic:1.2.0-custom`. If you want to install and run DeepMosaic manually, please read through and follow these steps. The following steps could be performed in a command line shell environment (Linux, Mac, Windows subsystem Linux etc., whichever has the computational resource and >20G storage to run DeepMosaic)
 
 ## Step 1. Install DeepMosaic
 
@@ -154,6 +156,16 @@ This step is used for the extraction of genomic features of the variant from raw
 ```
 > [DeepMosaic Path]/deepmosaic/deepmosaic-draw -i <input.txt> -o <output_dir> -a <path_to_ANNOVAR> -b <genome_build> -db <name_of_annovar_db>
 ```
+
+For custom genome builds:
+
+```
+> [DeepMosaic Path]/deepmosaic/deepmosaic-draw -i <input.txt> -o <output_dir> --build custom --reference-fasta <reference.fa> --repeat-bed <repeat.bed> --segdup-bed <segdup.bed> --skip-annovar
+```
+
+
+For `--build custom`, `--reference-fasta`, `--repeat-bed`, and `--segdup-bed` are required arguments for `deepmosaic-draw`. BAM/CRAM, VCF, FASTA, repeat BED, and segdup BED must use the same coordinate system. Use `--skip-annovar` for custom or non-human assemblies when ANNOVAR/gnomAD annotation is not available. These options are used only with `deepmosaic-draw`; do not pass them to `deepmosaic-predict`.
+
 ### Note:
 
 1. `input.txt` file should be in the following format.
@@ -190,13 +202,13 @@ While using MuTect2 we recommend "PASS" vcfs as input for DeepMosaic. Running Mu
 
 6. `path_to_ANNOVAR` is the absolute path to the ANNOVAR program directory.
      
-7. `genome_build` is the build version of the reference genome, currently `hg19` and `hg38` are supported. Defaults to `hg19`.
+7. `genome_build` is the build version of the reference genome. Supported options are `hg19`, `hg38`, and `custom`. Defaults to `hg19`. For `custom` builds, users must provide `--reference-fasta`, `--repeat-bed`, and `--segdup-bed`.
 
 8. `name_of_annovar_db` is the name of the db you want to use from the annovar subdirectory `[annovar/humandb]`. For example, if you want to use `annovar/humandb/hg38_gnomad312_genome.txt`, you would use `-db gnomad312_genome`. This option is fed directly into the annovar command as `--dbtype`. Defaults to `gnomad_genome`.
 
 9. To generate h5 files for other genome builds (not recommended) please follow [this link](https://github.com/gmcvicker/genome), note that this package runs in Python 2.7.
 
-10. OPTIONAL: To utilize `CRAM` file inputs instead of `BAM`, use `-c <reference_file_path>` when running the command from above to include the path to the reference file that was used to build the cram file (such as hg19). 
+10. OPTIONAL: To utilize `CRAM` file inputs instead of `BAM`, use `-c <reference_file_path>` to include the path to the reference FASTA used to build the CRAM file. For custom genome builds, this should match the FASTA passed to `--reference-fasta`.
     
 ### Output:
 After deepmosaic-draw is successfully executed, the following files/directories would be generated in the `[output_dir]`
@@ -215,7 +227,7 @@ After deepmosaic-draw is successfully executed, the following files/directories 
 
 3. `repeats_annotation.bed` is the intermediate file annotating the repeat and segdup information of each variant.
 
-4. `input.hg19_gnomad_genome_dropped`, `input.hg19_gnomad_genome_filtered`, `input.exonic_variant_function`, `input.variant_function` are ANNOVAR outputs annotating the gnomad and variant function information.
+4. `input.hg19_gnomad_genome_dropped`, `input.hg19_gnomad_genome_filtered`, `input.exonic_variant_function`, `input.variant_function` are ANNOVAR outputs annotating the gnomad and variant function information. When `--skip-annovar` is used, ANNOVAR output files are not generated, and gene/population-frequency annotations may be unavailable.
 
 [Return to Contents](#contents)
 
@@ -235,6 +247,18 @@ After deepmosaic-draw is successfully executed, the following files/directories 
 > [DeepMosaic Path]/deepmosaic/deepmosaic-predict -i <output_dir/features.txt> -o <output.txt> -m [prediction_model (default: efficientnet-b4_epoch_6.pt)] -b [batch_size (default: 10)] -gb <genome_build>
 ```
 
+For custom-build features, use:
+
+```
+> [DeepMosaic Path]/deepmosaic/deepmosaic-predict -i <output_dir/features.txt> -o <output.txt> -gb custom
+```
+
+Optional depth-fraction thresholds can be adjusted with:
+
+```
+> [DeepMosaic Path]/deepmosaic/deepmosaic-predict -i <output_dir/features.txt> -o <output.txt> -gb <genome_build> --min-depth-fraction x.x --max-depth-fraction x.x
+```
+
 ### Note:
 
 1. `output_dir/features.txt` is the output file from last step.
@@ -244,8 +268,10 @@ After deepmosaic-draw is successfully executed, the following files/directories 
 3. `prediction_model` is the pretrained DeepMosaic model. The default one (best performing model efficientnet-b4_epoch_6.pt) is trained on our train set for 6 epoch from the efficientnet-b4 architecture.
 
 4. `batch_size` is the number of images (variants) predicted by DeepMosaic model simultaneously. Larger batch size means more memory and faster prediction. User can adjust this value depending on his/her available computing power. Default batch size is 10.
-     
-5. `genome_build` is the build version of the reference genome, currently hg19 and hg38 are supported.
+
+5. `genome_build` is the build version of the reference genome. Supported options are `hg19`, `hg38`, and `custom`. Use `-gb custom` for features generated with `--build custom`.
+
+6. `--min-depth-fraction` and `--max-depth-fraction` optionally control the `depth_fraction` thresholds used during prediction. Defaults are `0.6` and `1.7`.
 
 ### Output:
 
@@ -254,7 +280,7 @@ After deepmosaic-draw is successfully executed, the following files/directories 
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
 |sample_1| M | 1 | 17697 | G | C | 1_17697_G_C | 0.18236472945891782 | 0.15095348571574527 | 0.21862912439071866 | ncRNA_exonic | WASH7P | 0.1231 | 1 | 1 | 0 | 0 | 3.09 |0.9999058880667084 |6.519687262508766e-10 | 9.411128132280348e-05 | artifact| /.../images/sample_1-1_17697_G_C.jpg |
 
-1. The prediction result is in the column "prediction". The possible results are `mosaic`, `heterozygous`, `ref_homozygous`, `alt_homozygous` or `artifact`. Only variants marked by `mosaic` are DeepMosaic predicted mosaic positive. The prediction decision is made by considering the mosaic score generated by DeepMosaic deeplearning model as well as the extracted, user-input, as well as annotated features such as maf, depth_fraction, repeat, segdup, etc. All genomic coordinates and annotations are based on GRCh37d5 reference genome.
+1. The prediction result is in the column "prediction". The possible results are `mosaic`, `heterozygous`, `ref_homozygous`, `alt_homozygous` or `artifact`. Only variants marked by `mosaic` are DeepMosaic predicted mosaic positive. The prediction decision is made by considering the mosaic score generated by DeepMosaic deeplearning model as well as the extracted, user-input, as well as annotated features such as maf, depth_fraction, repeat, segdup, etc. For `hg19`, genomic coordinates and annotations follow the GRCh37/hg19 reference. For `hg38` or `custom` builds, coordinates follow the input reference/VCF coordinate system. When `--skip-annovar` is used, gene and gnomAD annotations may be unavailable.
 
 2. Image representations of the variants are stored in the files indicated by "image_filepath" column. User can directly open the .jpg files and visually inspect the piled reads for sanity check.
 
@@ -375,27 +401,33 @@ example command:
 
 </summary>
 
-Singularity containers can be found on [Sylabs](https://cloud.sylabs.io/library/sanglee8888/deepmosaic/deepmosaic).
+Singularity image is available on [Sylabs](https://cloud.sylabs.io/library/sai7777777/deepmosaic/deepmosaic).
+
+To download DeepMosaic v1.2.0:
+
+```
+singularity pull DeepMosaic_1.2.0-custom.sif library://sai7777777/deepmosaic/deepmosaic:1.2.0-custom
+```
 
 ## Note
-
-1. The singularity container currently only works with hg19/GRCh37 and hg38/GRCh38.
-2. You'll need your own copy of ANNOVAR outside the singularity (please specify the path of ANNOVAR in `<options>`).
+1.Note: `--reference-fasta`, `--repeat-bed`, `--segdup-bed`, and `--skip-annovar` are only used with `deepmosaic-draw`. They should not be passed to `deepmosaic-predict`. For custom builds, first run `deepmosaic-draw -b custom ...` to generate `features.txt`, then run `deepmosaic-predict -i <output_dir/features.txt> -gb custom`.
+2. The DeepMosaic v1.2.0 Singularity image supports `hg19`, `hg38`, and `custom` genome builds.
+3. You'll need your own copy of ANNOVAR outside the singularity (please specify the path of ANNOVAR in `<options>`).
 
 ## Usage
 
 ### Basic Usage
 
-1. `singularity exec DeepMosaic.sif deepmosaic-draw <options>`
-2. `singularity exec DeepMosaic.sif deepmosaic-predict <options>`
+1. `singularity exec DeepMosaic_1.2.0-custom.sif deepmosaic-draw <options>`
+2. `singularity exec DeepMosaic_1.2.0-custom.sif deepmosaic-predict <options>`
 3. There maybe some instances where the path to ANNOVAR may not be detected depending on how singularity is set up. In this case, please use the -B flag along with the path to the annovar before running the command options to have it mounted to the sif file.
 
-`singularity exec -B <path/to/annovar> DeepMosaic.sif deepmosaic-draw <options>`
+`singularity exec -B <path/to/annovar> DeepMosaic_1.2.0-custom.sif deepmosaic-draw <options>`
 
 #### Training and using your own model
 
-1. `singularity exec DeepMosaic.sif python /DeepMosaic/deepmosaic/trainModel.py <options>`
-2. `singularity exec DeepMosaic.sif deepmosaic-predict <options> --model-path <path_to_your_model>`
+1. `singularity exec DeepMosaic_1.2.0-custom.sif python /DeepMosaic/deepmosaic/trainModel.py <options>`
+2. `singularity exec DeepMosaic_1.2.0-custom.sif deepmosaic-predict <options> --model-path <path_to_your_model>`
 
 See [Usage](#Usage) and [Model Training](#model-training) for more details.
 
@@ -411,7 +443,13 @@ See [Usage](#Usage) and [Model Training](#model-training) for more details.
 
 </summary>
 
-Current Docker image is available as `sanglee8888/deepmosaic:latest` on [dockerhub](https://hub.docker.com/), which can be pulled to your local using `docker pull sanglee8888/deepmosaic:latest`. Both amd and arm platforms are available, which can be selected with the `--platform linux/arm64` or `linux/amd64` flag. The usage for it is as follows:
+Current DeepMosaic 1.2.0 Docker image is available on [Docker Hub](https://hub.docker.com/r/sai7777777/deepmosaic) as:
+
+```
+docker pull sai7777777/deepmosaic:1.2.0-custom
+```
+
+This image supports custom genome builds and configurable prediction `depth_fraction` thresholds while preserving the existing DeepMosaic runtime environment. The usage is as follows:
 
 You need to have the input.txt file set up as something like:
 
@@ -424,13 +462,39 @@ You need to have the input.txt file set up as something like:
 |sample_3|/mnt/demo/bams/sample_3.bam|/mnt/demo/vcfs/sample_3.vcf|200|M|
 |sample_4|/mnt/demo/bams/sample_4.bam|/mnt/demo/vcfs/sample_4.vcf|200|M|
 
-Where you must include the /mnt directory for usage with Docker's -v flag command. The sample command for running deepmosaic-draw and deepmosaic-predict are as follows:
+Where you must include the `/mnt` directory for usage with Docker's `-v` flag command. The sample command for running deepmosaic-draw and deepmosaic-predict are as follows:
 
 ## deepmosaic-draw
-docker run -v ~/Desktop/annovar:/mnt/annovar -v ~/Desktop/DeepMosaic/demo:/mnt/demo -v ~/Desktop/output:/mnt/output sanglee8888/deepmosaic draw -i /mnt/demo/input.txt -o /mnt/output -a /mnt/annovar
 
-## deepmosaic-predict 
-docker run -v ~/Desktop/output:/mnt/output sanglee8888/deepmosaic predict -i /mnt/output/features.txt -o /mnt/output/prediction.txt -gb hg19
+```
+docker run -v ~/Desktop/annovar:/mnt/annovar -v ~/Desktop/DeepMosaic/demo:/mnt/demo -v ~/Desktop/output:/mnt/output sai7777777/deepmosaic:1.2.0-custom draw -i /mnt/demo/input.txt -o /mnt/output -a /mnt/annovar
+```
+
+## deepmosaic-predict
+
+```
+docker run -v ~/Desktop/output:/mnt/output sai7777777/deepmosaic:1.2.0-custom predict -i /mnt/output/features.txt -o /mnt/output/prediction.txt -gb hg19
+```
+
+## DeepMosaic 1.2.0 custom-build Docker example
+
+### deepmosaic-draw with custom build
+
+```
+docker run -v /path/to/data:/mnt/data sai7777777/deepmosaic:1.2.0-custom draw -i /mnt/data/input.txt -o /mnt/data/output --build custom --reference-fasta /mnt/data/reference.fa --repeat-bed /mnt/data/repeat.bed --segdup-bed /mnt/data/segdup.bed --skip-annovar
+```
+
+### deepmosaic-predict with custom build
+
+```
+docker run -v /path/to/data:/mnt/data sai7777777/deepmosaic:1.2.0-custom predict -i /mnt/data/output/features.txt -o /mnt/data/output/prediction_custom.txt -gb custom
+```
+
+### Sample command to update depth-fraction threshold values
+
+```
+docker run -v /path/to/data:/mnt/data sai7777777/deepmosaic:1.2.0-custom predict -i /mnt/data/output/features.txt -o /mnt/data/output/prediction_custom_depth.txt -gb custom --min-depth-fraction x.x --max-depth-fraction x.x
+```
 
 [Return to Contents](#contents)
 
@@ -452,7 +516,7 @@ We estimated > 90% experimental validation rate for WGS data identified as "mosa
 
 We estimated ~40% experimental validation rate for WES data identified as "mosaic" by the current DeepMosaic WGS model (GRCh37).
 
-Note that the performance of DeepMosaic on GRCh38 will be different, our preliminary estimation showed.
+Note that the performance of DeepMosaic on GRCh38 and other custom genome builds will be different; our estimation showed larger than 3% differences in prediction labels, especially for the mosaic labels.
 
 [Return to Contents](#contents)
 
@@ -494,11 +558,15 @@ Note that the performance of DeepMosaic on GRCh38 will be different, our prelimi
 
 6. Q: What genome versions does DeepMosaic support?
 
-   A: DeepMosaic is benchmarked on GRCh37(hg19) we are working on some tests for GRCh38(hg39) and are providing some scripts and annotation resources [here](https://github.com/shishenyxx/DeepMosaic/tree/master/DeepMosaic_hg38) the model is still the same so the main differences lie in coordinate differences. We will make further updates when we finish new models trained on GRCh38 or CHM13. As most of our current benchmark experiments are carried out on GRCh37 we cannot guarantee the performance on GRCh38.
+   A: DeepMosaic is benchmarked on GRCh37/hg19. `hg38` is supported, but performance may differ because most benchmark experiments were carried out on GRCh37. Starting with DeepMosaic v1.2.0, `custom` genome-build mode is also available for users who provide their own reference FASTA, repeat BED, and segdup BED files. Model performance on custom/non-human assemblies has not been fully validated.
    
 7. Q: Why I got errors about pickle_module.load(f, **pickle_load_args)?
 
    A: Because you didn't fully download DeepMosaic, the entire model folder should be more than 200 MB. Please refer to the git-lfs section in the tutorial.
+
+8. Q: What is new in DeepMosaic v1.2.0?
+
+   A: DeepMosaic v1.2.0 adds custom genome-build support and configurable prediction `depth_fraction` thresholds. Users can run `--build custom` by providing a matching reference FASTA, repeat BED, and segdup BED file. For prediction, users can adjust `--min-depth-fraction` and `--max-depth-fraction`. Existing `hg19` and `hg38` workflows remain supported.
    
 [Return to Contents](#contents)
 
@@ -521,6 +589,8 @@ Released under GNU-GPL 3.0 [licence](https://github.com/shishenyxx/DeepMosaic/bl
 # Contributors
 
 [Virginia (Xin) Xu](https://github.com/Virginiaxu)
+
+[Sai Babu Patarlapalli](https://github.com/Saibabu7770)
 
 [Sang Lee](https://github.com/sang0318)
 
